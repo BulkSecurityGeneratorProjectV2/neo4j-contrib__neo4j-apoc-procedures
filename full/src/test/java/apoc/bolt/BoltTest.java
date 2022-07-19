@@ -3,7 +3,6 @@ package apoc.bolt;
 import apoc.cypher.Cypher;
 import apoc.export.cypher.ExportCypher;
 import apoc.util.Neo4jContainerExtension;
-import apoc.util.TestContainerUtil;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import org.junit.AfterClass;
@@ -24,7 +23,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static apoc.util.TestUtil.isRunningInCI;
+import static apoc.util.TestContainerUtil.createEnterpriseDB;
+import static apoc.util.TestContainerUtil.logPorts;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -40,18 +40,14 @@ public class BoltTest {
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
 
-    private static Neo4jContainerExtension neo4jContainer;
-    private static String BOLT_URL;
+    public static Neo4jContainerExtension neo4jContainer;
 
     @BeforeClass
     public static void setUp() throws Exception {
-        neo4jContainer = TestContainerUtil.createEnterpriseDB(isRunningInCI())
-                .withInitScript("init_neo4j_bolt.cypher")
-                .withLogging()
-                .withAdminPassword("neo4j2020");
+        logPorts(); // daniel
+        neo4jContainer = createEnterpriseDB(true).withInitScript("init_neo4j_bolt.cypher").withLogging();
         neo4jContainer.start();
-        BOLT_URL = "'" + "bolt://neo4j:neo4j2020@" + neo4jContainer.getContainerIpAddress() + ":" + neo4jContainer.getMappedPort(7687) + "'";
-
+        logPorts(); // daniel
         TestUtil.registerProcedure(db, Bolt.class, ExportCypher.class, Cypher.class);
     }
 
@@ -73,7 +69,7 @@ public class BoltTest {
 
     @Test
     public void testLoadNodeVirtual() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load(" + BOLT_URL + ",'match(p:Person {name:$name}) return p', {name:'Michael'}, {virtual:true})", r -> {
+            TestUtil.testCall(db, "call apoc.bolt.load(" + getBoltUrl() + ",'match(p:Person {name:$name}) return p', {name:'Michael'}, {virtual:true})", r -> {
                 assertNotNull(r);
                 Map<String, Object> row = (Map<String, Object>) r.get("row");
                 Node node = (Node) row.get("p");
@@ -87,7 +83,7 @@ public class BoltTest {
 
     @Test
     public void testLoadNodesVirtual() throws Exception {
-            TestUtil.testResult(db, "call apoc.bolt.load(" + BOLT_URL + ",'match(n) return n', {}, {virtual:true})", r -> {
+            TestUtil.testResult(db, "call apoc.bolt.load(" + getBoltUrl() + ",'match(n) return n', {}, {virtual:true})", r -> {
                 assertNotNull(r);
                 Map<String, Object> row = r.next();
                 Map result = (Map) row.get("row");
@@ -118,7 +114,7 @@ public class BoltTest {
 
     @Test
     public void testLoadPathVirtual() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load(" + BOLT_URL + ",'MATCH (neo) WHERE neo.surname = $surnameNode  MATCH path= (neo)-[r:KNOWS*..3]->(other) return path', {surnameNode:'Burton'}, {virtual:true})", r -> {
+            TestUtil.testCall(db, "call apoc.bolt.load(" + getBoltUrl() + ",'MATCH (neo) WHERE neo.surname = $surnameNode  MATCH path= (neo)-[r:KNOWS*..3]->(other) return path', {surnameNode:'Burton'}, {virtual:true})", r -> {
                 assertNotNull(r);
                 Map<String, Object> row = (Map<String, Object>) r.get("row");
                 List<Object> path = (List<Object>) row.get("path");
@@ -139,7 +135,7 @@ public class BoltTest {
 
     @Test
     public void testLoadRel() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load(" + BOLT_URL + ",'match(p)-[r]->(c) return r limit 1', {}, {virtual:true})", r -> {
+            TestUtil.testCall(db, "call apoc.bolt.load(" + getBoltUrl() + ",'match(p)-[r]->(c) return r limit 1', {}, {virtual:true})", r -> {
                 assertNotNull(r);
                 Map<String, Object> row = (Map<String, Object>) r.get("row");
                 Relationship rel = (Relationship) row.get("r");
@@ -151,7 +147,7 @@ public class BoltTest {
 
     @Test
     public void testLoadRelsAndNodes() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load(" + BOLT_URL + ",'match(p:Person {surname:$surnameP})-[r]->(c:Person {surname:$surnameC}) return *', {surnameP:\"Burton\", surnameC:\"William\"}, {virtual:true})", r -> {
+            TestUtil.testCall(db, "call apoc.bolt.load(" + getBoltUrl() + ",'match(p:Person {surname:$surnameP})-[r]->(c:Person {surname:$surnameC}) return *', {surnameP:\"Burton\", surnameC:\"William\"}, {virtual:true})", r -> {
                 Map result = (Map) r.get("row");
                 Node node = (Node) result.get("p");
                 assertEquals(true, node.hasLabel(Label.label("Person")));
@@ -168,7 +164,7 @@ public class BoltTest {
 
     @Test
     public void testLoadNullParams() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load("+BOLT_URL+",\"match(p:Person {name:'Michael'}) return p\")", r -> {
+            TestUtil.testCall(db, "call apoc.bolt.load("+getBoltUrl()+",\"match(p:Person {name:'Michael'}) return p\")", r -> {
                 assertNotNull(r);
                 Map<String, Object> row = (Map<String, Object>) r.get("row");
                 Map<String, Object> node = (Map<String, Object>) row.get("p");
@@ -185,7 +181,7 @@ public class BoltTest {
 
     @Test
     public void testLoadNode() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load(" + BOLT_URL + ",'match (p:Person {name:$name}) return p', {name:'Michael'})", r -> {
+            TestUtil.testCall(db, "call apoc.bolt.load(" + getBoltUrl() + ",'match (p:Person {name:$name}) return p', {name:'Michael'})", r -> {
                 assertNotNull(r);
                 Map<String, Object> row = (Map<String, Object>) r.get("row");
                 Map<String, Object> node = (Map<String, Object>) row.get("p");
@@ -202,7 +198,7 @@ public class BoltTest {
 
     @Test
     public void testLoadScalarSingleReusult() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load(" + BOLT_URL + ",'match (n:Person {name:$name}) return n.age as Age', {name:'Michael'})", (r) -> {
+            TestUtil.testCall(db, "call apoc.bolt.load(" + getBoltUrl() + ",'match (n:Person {name:$name}) return n.age as Age', {name:'Michael'})", (r) -> {
                 assertNotNull(r);
                 Map<String, Object> row = (Map<String, Object>) r.get("row");
                 assertTrue(row.containsKey("Age"));
@@ -212,7 +208,7 @@ public class BoltTest {
 
     @Test
     public void testLoadMixedContent() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load(" + BOLT_URL + ",'match (n:Person {name:$name}) return n.age, n.name, n.state', {name:'Michael'})",
+            TestUtil.testCall(db, "call apoc.bolt.load(" + getBoltUrl() + ",'match (n:Person {name:$name}) return n.age, n.name, n.state', {name:'Michael'})",
                     r -> {
                         assertNotNull(r);
                         Map<String, Object> row = (Map<String, Object>) r.get("row");
@@ -227,7 +223,7 @@ public class BoltTest {
 
     @Test
     public void testLoadList() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load(" + BOLT_URL + ",'match (p:Person {name:$name})  with collect({personName:p.name}) as rows return rows', {name:'Michael'})", r -> {
+            TestUtil.testCall(db, "call apoc.bolt.load(" + getBoltUrl() + ",'match (p:Person {name:$name})  with collect({personName:p.name}) as rows return rows', {name:'Michael'})", r -> {
                 assertNotNull(r);
                 Map<String, Object> row = (Map<String, Object>) r.get("row");
                 List<Collections> p = (List<Collections>) row.get("rows");
@@ -239,7 +235,7 @@ public class BoltTest {
 
     @Test
     public void testLoadMap() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load(" + BOLT_URL + ",'match (p:Person {name:$name})  with p,collect({personName:p.name}) as rows return p{.*, rows:rows}', {name:'Michael'})", r -> {
+            TestUtil.testCall(db, "call apoc.bolt.load(" + getBoltUrl() + ",'match (p:Person {name:$name})  with p,collect({personName:p.name}) as rows return p{.*, rows:rows}', {name:'Michael'})", r -> {
                 assertNotNull(r);
                 Map<String, Object> row = (Map<String, Object>) r.get("row");
                 Map<String, Object> p = (Map<String, Object>) row.get("p");
@@ -256,7 +252,7 @@ public class BoltTest {
 
     @Test
     public void testLoadPath() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load(" + BOLT_URL + ",'MATCH path= (neo)-[r:KNOWS*..3]->(other) where neo.surname = $surnameNode return path', {surnameNode: 'Burton'}, {})", r -> {
+            TestUtil.testCall(db, "call apoc.bolt.load(" + getBoltUrl() + ",'MATCH path= (neo)-[r:KNOWS*..3]->(other) where neo.surname = $surnameNode return path', {surnameNode: 'Burton'}, {})", r -> {
                 assertNotNull(r);
                 Map<String, Object> row = (Map<String, Object>) r.get("row");
                 List<Object> path = (List<Object>) row.get("path");
@@ -283,7 +279,7 @@ public class BoltTest {
 
     @Test
     public void testLoadRels() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load(" + BOLT_URL + ",'match (n)-[r]->(c) return r as rel limit 1', {})", (r) -> {
+            TestUtil.testCall(db, "call apoc.bolt.load(" + getBoltUrl() + ",'match (n)-[r]->(c) return r as rel limit 1', {})", (r) -> {
                 assertNotNull(r);
                 Map<String, Object> row = (Map<String, Object>) r.get("row");
                 Map<String, Object> rel = (Map<String, Object>) row.get("rel");
@@ -299,7 +295,7 @@ public class BoltTest {
 
     @Test
     public void testExecuteCreateNodeStatistic() throws Exception {
-            TestUtil.testResult(db, "call apoc.bolt.execute(" + BOLT_URL + ",'create(n:Node {name:$name})', {name:'Node1'}, {statistics:true})", Collections.emptyMap(),
+            TestUtil.testResult(db, "call apoc.bolt.execute(" + getBoltUrl() + ",'create(n:Node {name:$name})', {name:'Node1'}, {statistics:true})", Collections.emptyMap(),
                     r -> {
                         assertNotNull(r);
                         Map<String, Object> row = r.next();
@@ -313,7 +309,7 @@ public class BoltTest {
 
     @Test
     public void testExecuteCreateVirtualNode() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.execute(" + BOLT_URL + ",'create(n:Node {name:$name}) return n', {name:'Node1'}, {virtual:true})",
+            TestUtil.testCall(db, "call apoc.bolt.execute(" + getBoltUrl() + ",'create(n:Node {name:$name}) return n', {name:'Node1'}, {virtual:true})",
                     r -> {
                         assertNotNull(r);
                         Map<String, Object> row = (Map<String, Object>) r.get("row");
@@ -325,7 +321,7 @@ public class BoltTest {
 
     @Test
     public void testLoadNoVirtual() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load("+BOLT_URL+",\"match(p:Person {name:'Michael'}) return p\", {}, {virtual:false, test:false})",
+            TestUtil.testCall(db, "call apoc.bolt.load("+getBoltUrl()+",\"match(p:Person {name:'Michael'}) return p\", {}, {virtual:false, test:false})",
                     r -> {
                         assertNotNull(r);
                         Map<String, Object> row = (Map<String, Object>) r.get("row");
@@ -343,7 +339,7 @@ public class BoltTest {
 
     @Test
     public void testLoadNodeWithDriverConfig() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load(" + BOLT_URL + ",\"match(p:Person {name:$nameP}) return p\", {nameP:'Michael'}, " +
+            TestUtil.testCall(db, "call apoc.bolt.load(" + getBoltUrl() + ",\"match(p:Person {name:$nameP}) return p\", {nameP:'Michael'}, " +
                             "{driverConfig:{logging:'WARNING', encryption: false,logLeakedSessions:true, maxIdleConnectionPoolSize:10, idleTimeBeforeConnectionTest:-1," +
                             " routingFailureLimit: 1, routingRetryDelayMillis:500, connectionTimeoutMillis:500, maxRetryTimeMs:30000 , trustStrategy:'TRUST_ALL_CERTIFICATES'}})",
                     r -> {
@@ -363,7 +359,7 @@ public class BoltTest {
 
     @Test
     public void testLoadBigPathVirtual() throws Exception {
-            TestUtil.testCall(db, "call apoc.bolt.load(" + BOLT_URL + ",'MATCH path= (neo)-[r:KNOWS*3]->(other) WHERE neo.surname = $surnameNode return path', {surnameNode: 'Loagan'}, {virtual:true})", r -> {
+            TestUtil.testCall(db, "call apoc.bolt.load(" + getBoltUrl() + ",'MATCH path= (neo)-[r:KNOWS*3]->(other) WHERE neo.surname = $surnameNode return path', {surnameNode: 'Loagan'}, {virtual:true})", r -> {
                 Map<String, Object> row = (Map<String, Object>) r.get("row");
                 List<Object> path = (List<Object>) row.get("path");
                 Node start = (Node) path.get(0);
@@ -421,7 +417,7 @@ public class BoltTest {
         String remoteStatement =
                 "CALL apoc.cypher.doIt(statement, {}) YIELD value\n" +
                         "RETURN value";
-        final Map<String, Object> map = Util.map("url", BOLT_URL.replaceAll("'", ""),
+        final Map<String, Object> map = Util.map("url", getBoltUrl().replaceAll("'", ""),
                 "localStatement", localStatement,
                 "remoteStatement", remoteStatement,
                 "config", Util.map("readOnly", false));
@@ -445,7 +441,7 @@ public class BoltTest {
         String localStatement = "call apoc.export.cypher.all(null, {format:'plain', stream:true}) YIELD cypherStatements\n" +
                 "UNWIND split(cypherStatements, \";\\n\") AS statement\n" +
                 "RETURN statement";
-        final Map<String, Object> map = Util.map("url", BOLT_URL.replaceAll("'", ""),
+        final Map<String, Object> map = Util.map("url", getBoltUrl().replaceAll("'", ""),
                 "localStatement", localStatement,
                 "remoteStatement", null,
                 "config", Util.map("readOnly", false, "streamStatements", true));
@@ -457,5 +453,9 @@ public class BoltTest {
         final String deleteQuery = "MATCH p = (s:Source{id:1})-[:REL]->(t:Target{id: 2}) DELETE p";
         db.executeTransactionally(deleteQuery);
         neo4jContainer.getSession().writeTransaction(tx -> tx.run(deleteQuery));
+    }
+    
+    private String getBoltUrl() {
+        return "'" + "bolt://neo4j:apoc@" + neo4jContainer.getContainerIpAddress() + ":" + neo4jContainer.getMappedPort(7687) + "'";
     }
 }

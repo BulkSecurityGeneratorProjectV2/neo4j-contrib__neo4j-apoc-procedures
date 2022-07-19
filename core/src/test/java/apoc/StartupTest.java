@@ -1,12 +1,11 @@
 package apoc;
 
-import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
-import apoc.util.TestUtil;
 import org.junit.Test;
 import org.neo4j.driver.Session;
 
 import static apoc.util.TestContainerUtil.createEnterpriseDB;
+import static apoc.util.TestUtil.isRunningInCI;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -18,11 +17,8 @@ import static org.junit.Assert.fail;
 public class StartupTest {
     @Test
     public void test() {
-        try {
-            Neo4jContainerExtension neo4jContainer = createEnterpriseDB(!TestUtil.isRunningInCI())
-                    .withNeo4jConfig("dbms.transaction.timeout", "60s");
-
-
+        try(var neo4jContainer = createEnterpriseDB(!isRunningInCI())
+                    .withNeo4jConfig("dbms.transaction.timeout", "60s")) {
             neo4jContainer.start();
 
             assertTrue("Neo4j Instance should be up-and-running", neo4jContainer.isRunning());
@@ -35,8 +31,6 @@ public class StartupTest {
             assertTrue(procedureCount > 0);
             assertTrue(functionCount > 0);
             assertTrue(coreCount > 0);
-
-            neo4jContainer.close();
         } catch (Exception ex) {
             // if Testcontainers wasn't able to retrieve the docker image we ignore the test
             if (TestContainerUtil.isDockerImageAvailable(ex)) {

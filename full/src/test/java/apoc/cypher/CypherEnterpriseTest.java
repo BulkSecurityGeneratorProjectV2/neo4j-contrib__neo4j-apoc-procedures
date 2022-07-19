@@ -1,15 +1,13 @@
 package apoc.cypher;
 
 import apoc.util.Neo4jContainerExtension;
-import apoc.util.TestUtil;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.neo4j.driver.Session;
 
-import static apoc.util.TestContainerUtil.createEnterpriseDB;
-import static apoc.util.TestContainerUtil.testResult;
+import static apoc.util.TestContainerUtil.*;
 import static apoc.util.Util.map;
 
 public class CypherEnterpriseTest {
@@ -19,10 +17,10 @@ public class CypherEnterpriseTest {
 
     @BeforeClass
     public static void beforeAll() {
-        // We build the project, the artifact will be placed into ./build/libs
-        neo4jContainer = createEnterpriseDB(!TestUtil.isRunningInCI())
-                .withNeo4jConfig("dbms.transaction.timeout", "60s");
+        logPorts(); // daniel
+        neo4jContainer = createEnterpriseDB(true).withNeo4jConfig("dbms.transaction.timeout", "120s");
         neo4jContainer.start();
+        logPorts(); // daniel
         session = neo4jContainer.getSession();
     }
 

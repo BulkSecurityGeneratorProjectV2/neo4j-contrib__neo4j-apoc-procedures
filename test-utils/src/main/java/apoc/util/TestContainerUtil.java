@@ -10,7 +10,9 @@ import org.gradle.tooling.ProjectConnection;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Session;
 import org.testcontainers.containers.ContainerFetchException;
+import org.testcontainers.containers.Neo4jContainer;
 import org.testcontainers.utility.MountableFile;
+import scala.concurrent.impl.FutureConvertersImpl;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -20,6 +22,7 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static apoc.util.TestUtil.printFullStackTrace;
@@ -52,6 +55,34 @@ public class TestContainerUtil {
             case ENTERPRISE -> createEnterpriseDB(baseDir, withLogging);
             case COMMUNITY -> createCommunityDB(baseDir, withLogging);
         };
+    }
+
+    // daniel delete
+    public static void logPorts() {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("ls");
+            pb.command("bash", "-c", "lsof -i -P -n | grep LISTEN");
+            var process = pb.start();
+            var lines = new BufferedReader(new InputStreamReader(process.getInputStream())).lines();
+            lines.forEach(System.out::println);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
+    // daniel could use this
+    public static Neo4jContainerExtension createAndStartWithRetries(int retries, Supplier<Neo4jContainerExtension> createDb) {
+        var db = createDb.get();
+
+        try {
+            db.start();
+            return db;
+        } catch (Exception e) {
+            db.close();
+            if (retries == 0) throw e;
+            else return createAndStartWithRetries(--retries, createDb);
+        }
     }
 
     public static Neo4jContainerExtension createEnterpriseDB(boolean withLogging)  {
@@ -102,14 +133,19 @@ public class TestContainerUtil {
                 .withPlugins(MountableFile.forHostPath(pluginsFolder.toPath()))
                 .withTmpFs(Map.of("/logs", "rw", "/data", "rw", pluginsFolder.toPath().toAbsolutePath().toString(), "rw"))
                 .withAdminPassword(password)
-                .withEnv("NEO4J_dbms_memory_heap_max__size", "512M")
-                .withEnv("NEO4J_dbms_memory_pagecache_size", "256M")
+                .withEnv("NEO4J_ACCEPT_LICENSE_AGREEMENT", "yes")
                 .withEnv("apoc.export.file.enabled", "true")
+                .withNeo4jConfig("dbms.memory.heap.max_size", "512M")
+                .withNeo4jConfig("dbms.memory.pagecache.size", "256M")
+                .withNeo4jConfig("dbms.memory.pagecache.warmup.enable", "false") // not needed for tests, faster startups
+                .withNeo4jConfig("metrics.enabled", "false") // not needed, faster startups
                 .withNeo4jConfig("dbms.security.procedures.unrestricted", "apoc.*")
                 .withFileSystemBind(canonicalPath, "/var/lib/neo4j/import") // map the "target/import" dir as the Neo4j's import dir
-                .withEnv("NEO4J_ACCEPT_LICENSE_AGREEMENT", "yes")
-//                .withDebugger()  // uncomment this line for remote debbuging inside docker's neo4j instance
-                .withCreateContainerCmdModifier(cmd -> cmd.withMemory(2024 * 1024 * 1024l))
+                .withCreateContainerCmdModifier(cmd -> cmd.withMemory(2024 * 1024 * 1024L)) // 2gb
+                .withExposedPorts(7687, 7473, 7474)
+                .withNeo4jConfig("dbms.security.causal_clustering_status_auth_enabled", "false") // for debugging cluster auth endpoints
+                .withNeo4jConfig("dbms.logs.debug.level", "DEBUG") // debug logs
+//                .withDebugger()  // attach debugger
 
                 // set uid if possible - export tests do write to "/import"
                 .withCreateContainerCmdModifier(cmd -> {

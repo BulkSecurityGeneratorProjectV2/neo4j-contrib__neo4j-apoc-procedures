@@ -5,7 +5,6 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.junit.jupiter.api.BeforeAll;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Session;
 
@@ -17,8 +16,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.util.FileUtils.NEO4J_DIRECTORY_CONFIGURATION_SETTING_NAMES;
-import static apoc.util.TestContainerUtil.createEnterpriseDB;
-import static apoc.util.TestContainerUtil.testResult;
+import static apoc.util.TestContainerUtil.*;
 import static apoc.util.Util.map;
 import static org.junit.Assert.assertTrue;
 import static org.neo4j.test.assertion.Assert.assertEventually;
@@ -32,16 +30,16 @@ public class MetricsTest {
     private static Neo4jContainerExtension neo4jContainer;
     private static Session session;
 
-    @BeforeAll
     @BeforeClass
     public static void beforeAll() throws InterruptedException {
+        logPorts(); // daniel
         neo4jContainer = createEnterpriseDB(true)
-                .withDebugger()
                 .withNeo4jConfig("apoc.import.file.enabled", "true")
                 .withNeo4jConfig("metrics.enabled", "true")
                 .withNeo4jConfig("metrics.csv.interval", "1s")
                 .withNeo4jConfig("metrics.namespaces.enabled", "true");
         neo4jContainer.start();
+        logPorts(); // daniel
         session = neo4jContainer.getSession();
     }
 
@@ -50,6 +48,7 @@ public class MetricsTest {
         neo4jContainer.close();
     }
 
+    // TODO: Investigate broken test. It hangs for more than 30 seconds for no reason.
     @Test
     @Ignore
     public void shouldGetMetrics() {

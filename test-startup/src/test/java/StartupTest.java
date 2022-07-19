@@ -53,7 +53,7 @@ public class StartupTest {
                     ex.printStackTrace();
                     fail("Should not have thrown exception when trying to start Neo4j: " + ex);
                 } else if (!TestUtil.isRunningInCI()) {
-                    fail( "The docker image " + TestContainerUtil.neo4jEnterpriseDockerImageVersion + " should be available in the CI");
+                    fail( "The docker image " + TestContainerUtil.neo4jEnterpriseDockerImageVersion + " should be available in the CI:" + ex);
                 }
             }
         }

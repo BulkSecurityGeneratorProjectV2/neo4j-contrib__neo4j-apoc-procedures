@@ -2,7 +2,6 @@ package apoc;
 
 import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
-import apoc.util.TestUtil;
 import org.junit.Test;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
@@ -15,6 +14,7 @@ import java.util.stream.Collectors;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.util.TestContainerUtil.createEnterpriseDB;
+import static apoc.util.TestContainerUtil.logPorts;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -27,12 +27,13 @@ import static org.junit.Assert.fail;
 public class CoreExtendedTest {
     @Test
     public void checkForCoreAndExtended() {
-        try {
-            Neo4jContainerExtension neo4jContainer = createEnterpriseDB(!TestUtil.isRunningInCI())
-                    .withNeo4jConfig("dbms.transaction.timeout", "60s")
-                    .withNeo4jConfig(APOC_IMPORT_FILE_ENABLED, "true");
+        logPorts(); // daniel
+        try (Neo4jContainerExtension neo4jContainer = createEnterpriseDB(true)
+                .withNeo4jConfig("dbms.transaction.timeout", "60s")
+                .withNeo4jConfig(APOC_IMPORT_FILE_ENABLED, "true")) {
 
             neo4jContainer.start();
+            logPorts(); // daniel
 
             Session session = neo4jContainer.getSession();
             int coreCount = session.run("CALL apoc.help('') YIELD core WHERE core = true RETURN count(*) AS count").peek().get("count").asInt();
@@ -40,8 +41,6 @@ public class CoreExtendedTest {
 
             assertTrue(coreCount > 0);
             assertTrue(extendedCount > 0);
-
-            neo4jContainer.close();
         } catch (Exception ex) {
             if (TestContainerUtil.isDockerImageAvailable(ex)) {
                 ex.printStackTrace();
@@ -52,11 +51,11 @@ public class CoreExtendedTest {
 
     @Test
     public void matchesSpreadsheet() {
-        try {
-            Neo4jContainerExtension neo4jContainer = createEnterpriseDB(!TestUtil.isRunningInCI())
-                    .withNeo4jConfig("dbms.transaction.timeout", "60s");
-
+        logPorts(); // daniel
+        try(Neo4jContainerExtension neo4jContainer = createEnterpriseDB(true)
+                .withNeo4jConfig("dbms.transaction.timeout", "60s")) {
             neo4jContainer.start();
+            logPorts(); // daniel
 
             Session session = neo4jContainer.getSession();
 
@@ -77,8 +76,6 @@ public class CoreExtendedTest {
             List<Map.Entry<String, String>> different = spreadsheet.entrySet().stream().filter(entry -> actual.containsKey(entry.getKey()) && !actual.get(entry.getKey()).equals(entry.getValue())).collect(Collectors.toList());
 
             assertEquals(different.toString(), 0, different.size());
-
-            neo4jContainer.close();
         } catch (Exception ex) {
             if (TestContainerUtil.isDockerImageAvailable(ex)) {
                 ex.printStackTrace();

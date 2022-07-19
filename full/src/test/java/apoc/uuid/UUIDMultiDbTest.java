@@ -1,7 +1,6 @@
 package apoc.uuid;
 
 import apoc.util.Neo4jContainerExtension;
-import apoc.util.TestUtil;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -18,6 +17,7 @@ import java.util.stream.Collectors;
 import static apoc.ApocConfig.APOC_UUID_ENABLED;
 import static apoc.ApocConfig.APOC_UUID_ENABLED_DB;
 import static apoc.util.TestContainerUtil.createEnterpriseDB;
+import static apoc.util.TestContainerUtil.logPorts;
 import static apoc.uuid.UuidHandler.NOT_ENABLED_ERROR;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -30,10 +30,11 @@ public class UUIDMultiDbTest {
 
     @BeforeClass
     public static void setupContainer() {
-        neo4jContainer = createEnterpriseDB(!TestUtil.isRunningInCI()).withEnv(
+        logPorts(); // daniel
+        neo4jContainer = createEnterpriseDB(true).withEnv(
                 Map.of(String.format(APOC_UUID_ENABLED_DB, dbTest), "false", APOC_UUID_ENABLED, "true"));
         neo4jContainer.start();
-
+        logPorts(); // daniel
         driver = GraphDatabase.driver(neo4jContainer.getBoltUrl(), AuthTokens.basic("neo4j", "apoc"));
 
         try (Session session = driver.session(SessionConfig.forDatabase("system"))) {
